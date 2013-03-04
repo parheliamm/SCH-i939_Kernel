@@ -320,7 +320,7 @@ static void touchkey_init_hw(void)
 	if (system_rev < 3)
 		gpio_request(GPIO_3_TOUCH_EN_R1, "gpio_3_touch_en");
 	else
-		gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
+	gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
 #else
 	gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
 #endif
@@ -441,10 +441,10 @@ static int touchkey_led_power_on(bool on)
 		else
 			gpio_direction_output(GPIO_3_TOUCH_EN_R1, 0);
 	} else {
-		if (on)
-			gpio_direction_output(GPIO_3_TOUCH_EN, 1);
-		else
-			gpio_direction_output(GPIO_3_TOUCH_EN, 0);
+	if (on)
+		gpio_direction_output(GPIO_3_TOUCH_EN, 1);
+	else
+		gpio_direction_output(GPIO_3_TOUCH_EN, 0);
 	}
 #else
 	if (on)
@@ -881,9 +881,10 @@ static struct s3c_mshci_platdata exynos4_mshc_pdata __initdata = {
 				  MMC_CAP_UHS_DDR50 | MMC_CAP_CMD23,
 #ifdef CONFIG_MMC_MSHCI_ENABLE_CACHE
 	.host_caps2		= MMC_CAP2_ADAPT_PACKED | MMC_CAP2_PACKED_CMD |
-				  MMC_CAP2_CACHE_CTRL,
+				  MMC_CAP2_CACHE_CTRL | MMC_CAP2_POWEROFF_NOTIFY,
 #else
-	.host_caps2		= MMC_CAP2_ADAPT_PACKED | MMC_CAP2_PACKED_CMD,
+	.host_caps2		= MMC_CAP2_ADAPT_PACKED | MMC_CAP2_PACKED_CMD |
+				  MMC_CAP2_POWEROFF_NOTIFY,
 #endif
 #elif defined(CONFIG_EXYNOS4_MSHC_8BIT)
 	.max_width		= 8,
@@ -2969,15 +2970,15 @@ static void felica_setup(void)
 		s3c_gpio_setpull(FELICA_GPIO_I2C_SCL_R1, S3C_GPIO_PULL_DOWN);
 		gpio_free(FELICA_GPIO_I2C_SCL_R1);
 	} else {
-		/* I2C SDA GPY2[4] */
-		gpio_request(FELICA_GPIO_I2C_SDA, FELICA_GPIO_I2C_SDA_NAME);
-		s3c_gpio_setpull(FELICA_GPIO_I2C_SDA, S3C_GPIO_PULL_DOWN);
-		gpio_free(FELICA_GPIO_I2C_SDA);
+	/* I2C SDA GPY2[4] */
+	gpio_request(FELICA_GPIO_I2C_SDA, FELICA_GPIO_I2C_SDA_NAME);
+	s3c_gpio_setpull(FELICA_GPIO_I2C_SDA, S3C_GPIO_PULL_DOWN);
+	gpio_free(FELICA_GPIO_I2C_SDA);
 
-		/* I2C SCL GPY2[5] */
-		gpio_request(FELICA_GPIO_I2C_SCL, FELICA_GPIO_I2C_SCL_NAME);
-		s3c_gpio_setpull(FELICA_GPIO_I2C_SCL, S3C_GPIO_PULL_DOWN);
-		gpio_free(FELICA_GPIO_I2C_SCL);
+	/* I2C SCL GPY2[5] */
+	gpio_request(FELICA_GPIO_I2C_SCL, FELICA_GPIO_I2C_SCL_NAME);
+	s3c_gpio_setpull(FELICA_GPIO_I2C_SCL, S3C_GPIO_PULL_DOWN);
+	gpio_free(FELICA_GPIO_I2C_SCL);
 	}
 #elif defined(CONFIG_MACH_T0_JPN_LTE_DCM)
 	/* I2C SDA GPY2[4] */
