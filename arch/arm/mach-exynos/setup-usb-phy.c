@@ -39,6 +39,15 @@
 #define PHY_ENABLE	(1 << 0)
 #define PHY_DISABLE	(0)
 
+#ifdef CONFIG_USB_OHCI_S5P
+struct s5p_ohci_hcd {
+	struct device *dev;
+	struct usb_hcd *hcd;
+	struct clk *clk;
+	int power_on;
+};
+#endif
+
 enum usb_host_type {
 	HOST_PHY_EHCI	= (0x1 << 0),
 	HOST_PHY_OHCI	= (0x1 << 1),
@@ -460,7 +469,11 @@ static int exynos4_usb_phy1_init(struct platform_device *pdev)
 	/* set clock frequency for PLL */
 	phyclk = readl(EXYNOS4_PHYCLK) & ~(EXYNOS4210_CLKSEL_MASK);
 	phyclk |= exynos_usb_phy_set_clock(pdev);
+#ifdef CONFIG_USB_OHCI_S5P
+	phyclk |= PHY1_COMMON_ON_N;
+#else
 	phyclk &= ~(PHY1_COMMON_ON_N);
+#endif
 	writel(phyclk, EXYNOS4_PHYCLK);
 
 	/* set to normal HSIC 0 and 1 of PHY1 */
@@ -556,7 +569,11 @@ static int exynos4_usb_phy20_init(struct platform_device *pdev)
 	phyclk = exynos_usb_phy_set_clock(pdev);
 	/* COMMON Block configuration during suspend */
 	phyclk &= ~(PHY0_COMMON_ON_N);
+#ifdef CONFIG_USB_OHCI_S5P
+	phyclk |= PHY1_COMMON_ON_N;
+#else
 	phyclk &= ~(PHY1_COMMON_ON_N);
+#endif
 	writel(phyclk, EXYNOS4_PHYCLK);
 
 	/* set to normal of Device */
@@ -1133,6 +1150,11 @@ int exynos_check_usb_op(void)
 int s5p_usb_phy_suspend(struct platform_device *pdev, int type)
 {
 	int ret = 0;
+#ifdef CONFIG_USB_OHCI_S5P
+	struct s5p_ohci_hcd *s5p_ohci = platform_get_drvdata(&s5p_device_ohci);
+	struct usb_hcd *ohci_hcd = s5p_ohci->hcd;
+	u32 phyclk;
+#endif
 
 	if (exynos_usb_phy_clock_enable(pdev))
 		return 0;
@@ -1151,7 +1173,16 @@ int s5p_usb_phy_suspend(struct platform_device *pdev, int type)
 		if (soc_is_exynos4210() ||
 			soc_is_exynos4212() ||
 			soc_is_exynos4412()) {
-			dev_info(&pdev->dev, "host_phy_susp\n");
+#ifdef CONFIG_USB_OHCI_S5P
+			/* Set OHCI clock off when ohci_hcd is suspended */
+			if (ohci_hcd->state == HC_STATE_SUSPENDED) {
+				phyclk = readl(EXYNOS4_PHYCLK);
+				phyclk &= ~(PHY1_COMMON_ON_N);
+				writel(phyclk, EXYNOS4_PHYCLK);
+			}
+			dev_info(&pdev->dev, "host_phy_susp:%d\n",
+					ohci_hcd->state);
+#endif
 			ret = exynos4_usb_phy1_suspend(pdev);
 		} else
 			ret = exynos5_usb_phy_host_suspend(pdev);
@@ -1180,6 +1211,11 @@ int s5p_usb_phy_resume(struct platform_device *pdev, int type)
 		if (soc_is_exynos4210() ||
 			soc_is_exynos4212() ||
 			soc_is_exynos4412()) {
+#ifdef CONFIG_USB_OHCI_S5P
+			phyclk = readl(EXYNOS4_PHYCLK);
+			phyclk |= PHY1_COMMON_ON_N;
+			writel(phyclk, EXYNOS4_PHYCLK);
+#endif
 			ret = exynos4_usb_phy1_resume(pdev);
 		} else
 			ret = exynos5_usb_phy_host_resume(pdev);
