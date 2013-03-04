@@ -1688,6 +1688,8 @@ monitor_finish:
 	if (info->pdata->led_indicator == true)
 		battery_indicator_led(info);
 
+	power_supply_changed(&info->psy_bat);
+
 	pr_info("[%d] bat: s(%d, %d), v(%d, %d), "
 		"t(%d.%d), "
 		"cs(%d, %d), cb(%d), cr(%d, %d)",
@@ -1759,12 +1761,9 @@ monitor_finish:
 	if ((info->lpm_state == true) &&
 		(info->cable_type == POWER_SUPPLY_TYPE_BATTERY)) {
 		pr_info("%s: lpm with battery, maybe power off\n", __func__);
-		wake_lock_timeout(&info->monitor_wake_lock,
-					msecs_to_jiffies(10000));
-	} else {
-		wake_lock_timeout(&info->monitor_wake_lock,
-					msecs_to_jiffies(1000));
-	}
+		wake_lock_timeout(&info->monitor_wake_lock, 10 * HZ);
+	} else
+		wake_lock_timeout(&info->monitor_wake_lock, HZ);
 
 #ifdef CONFIG_FAST_BOOT
 skip_updating_status:
