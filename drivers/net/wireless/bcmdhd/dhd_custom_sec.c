@@ -107,14 +107,23 @@ const struct cntry_locales_custom translate_custom_table[] = {
 	{"MH", "XZ", 11},	/* Universal if Country code is MARSHALL ISLANDS */
 	{"PK", "XZ", 11},	/* Universal if Country code is PAKISTAN */
 #ifdef BCM4334_CHIP
-	{"RU", "RU", 5},
-	{"SG", "SG", 4},
-	{"US", "US", 46}
+  {"RU", "RU", 13},
+  {"SG", "SG", 4},
+  {"US", "US", 46},
+  {"UA", "UA", 8},
+  {"CO", "CO", 4},
+  {"ID", "ID", 1},
+  {"LA", "LA", 1},
+  {"LB", "LB", 2},
+  {"VN", "VN", 4},
 #endif
 #ifdef BCM4330_CHIP
-	{"RU", "RU", 1},
-	{"US", "US", 5}
+	{"RU", "RU", 13},
+	{"US", "US", 5},
+	{"UA", "UY", 0},
+	{"AD", "AL", 0},
 #endif
+	{"UA", "UA", 2}
 };
 
 /* Customized Locale convertor
@@ -879,6 +888,7 @@ int dhd_check_module_mac(dhd_pub_t *dhd, struct ether_addr *mac)
 	if (!IS_ERR(fp_mac)) {
 		DHD_ERROR(("[WIFI]Check Mac address in .mac.info \n"));
 		kernel_read(fp_mac, fp_mac->f_pos, mac_buf, sizeof(mac_buf));
+		filp_close(fp_mac, NULL);
 
 		if (strncmp(mac_buf, otp_mac_buf, 17) != 0) {
 			DHD_ERROR(("[WIFI]file MAC is wrong. Write OTP MAC in .mac.info \n"));
