@@ -525,6 +525,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	int buf_index;
 	int framecnt_seq;
 	int available_bufnum;
+	static int is_frame_end_irq;
 	struct v4l2_control is_ctrl;
 	u32 is_fn;
 
@@ -547,10 +548,9 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 	}
 
 	if (pdata->hw_ver >= 0x51) {
-		if (ctrl->is_frame_end_irq ||
-			ctrl->status == FIMC_BUFFER_STOP) {
+		if (is_frame_end_irq || ctrl->status == FIMC_BUFFER_STOP) {
 			pp = fimc_hwget_present_frame_count(ctrl);
-			ctrl->is_frame_end_irq = 0;
+			is_frame_end_irq = 0;
 		} else {
 			pp = fimc_hwget_before_frame_count(ctrl);
 		}
@@ -566,7 +566,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 			printk(KERN_INFO "%s[%d] SKIPPED\n", __func__, pp);
 			if (ctrl->cap->nr_bufs == 1) {
 				fimc_stop_capture(ctrl);
-				ctrl->is_frame_end_irq = 1;
+				is_frame_end_irq = 1;
 				ctrl->status = FIMC_BUFFER_STOP;
 			}
 			ctrl->restart = false;
@@ -637,7 +637,7 @@ static inline void fimc_irq_cap(struct fimc_control *ctrl)
 			if (available_bufnum == 1) {
 				ctrl->cap->lastirq = 0;
 				fimc_stop_capture(ctrl);
-				ctrl->is_frame_end_irq = 1;
+				is_frame_end_irq = 1;
 
 				printk(KERN_INFO "fimc_irq_cap available_bufnum = %d\n", available_bufnum);
 				ctrl->status = FIMC_BUFFER_STOP;
@@ -1159,7 +1159,7 @@ static int _fill_v4l2_buffer(struct vb2_buffer *vb, struct v4l2_buffer *b,
 		b->m.fd = vb->v4l2_planes[0].m.fd;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int _fill_vb2_buffer(struct vb2_buffer *vb, struct v4l2_buffer *b,
@@ -1764,9 +1764,29 @@ static int fimc_release(struct file *filp)
 	return 0;
 }
 
+#ifdef CONFIG_USE_FIMC_CMA
+static int fimc_open_with_retry(struct file *filp)
+{
+	int ret;
+	int i = 0;
+
+	ret = fimc_open(filp);
+
+	while (ret == -ENOMEM && i++ < 5) {
+		msleep(1000);
+		ret = fimc_open(filp);
+	}
+
+	return ret;
+}
+#define FIMC_OPEN fimc_open_with_retry
+#else
+#define FIMC_OPEN fimc_open
+#endif
+
 static const struct v4l2_file_operations fimc_fops = {
 	.owner		= THIS_MODULE,
-	.open		= fimc_open,
+	.open		= FIMC_OPEN,
 	.release	= fimc_release,
 	.ioctl		= video_ioctl2,
 	.read		= fimc_read,
