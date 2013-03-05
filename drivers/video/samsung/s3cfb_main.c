@@ -63,10 +63,7 @@
 #endif
 
 struct s3cfb_fimd_desc		*fbfimd;
-#ifdef CONFIG_FB_S5P_PREVENTESD
-struct mutex	s3cfb_lock;
-bool s3cfb_esd_detected = false;
-#endif
+
 struct s3cfb_global *get_fimd_global(int id)
 {
 	struct s3cfb_global *fbdev;
@@ -684,10 +681,6 @@ static int s3cfb_probe(struct platform_device *pdev)
 		pdata->lcd_on(pdev);
 #endif
 
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_init(&s3cfb_lock);
-#endif
-
 	ret = device_create_file(&(pdev->dev), &dev_attr_win_power);
 	if (ret < 0)
 		dev_err(fbdev[0]->dev, "failed to add sysfs entries\n");
@@ -863,25 +856,6 @@ void s3cfb_lcd0_pmu_off(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 void (*lcd_early_suspend)(void);
 void (*lcd_late_resume)(void);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-void s3cfb_reinitialize_lcd(void)
-{
-	s6e8ax0_early_suspend();
-	s5p_dsim_early_suspend();
-	msleep(10);
-	s5p_dsim_late_resume();
-	if (s5p_dsim_fifo_clear_ext() == 0) {
-		s5p_dsim_early_suspend();
-		msleep(10);
-		s5p_dsim_late_resume();
-		if (s5p_dsim_fifo_clear_ext() == 0)
-			pr_info("dsim resume fail!!!\n");
-	}
-	msleep(10);
-	s6e8ax0_late_resume();
-	printk(KERN_INFO "%s, re-initialize LCD - Done\n", __func__);
-}
-#endif
 
 void s3cfb_early_suspend(struct early_suspend *h)
 {
@@ -893,9 +867,6 @@ void s3cfb_early_suspend(struct early_suspend *h)
 
 	printk(KERN_INFO "+%s\n", __func__);
 
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_lock(&s3cfb_lock);
-#endif
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	if (lcd_early_suspend)
 		lcd_early_suspend();
@@ -961,11 +932,8 @@ void s3cfb_early_suspend(struct early_suspend *h)
 		s5p_sysmmu_disable(fbdev[0]->dev);
 	}
 #endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_unlock(&s3cfb_lock);
-#endif
-	printk(KERN_INFO "-%s\n", __func__);
 
+	printk(KERN_INFO "-%s\n", __func__);
 	return ;
 }
 
@@ -988,10 +956,7 @@ void s3cfb_late_resume(struct early_suspend *h)
 	dev_dbg(info->dev, "s3cfb - enable power domain\n");
 	pm_runtime_get_sync(&pdev->dev);
 #endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_lock(&s3cfb_lock);
-	s3cfb_esd_detected = false;
-#endif
+
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	s5p_dsim_late_resume();
 #endif
@@ -1036,6 +1001,7 @@ void s3cfb_late_resume(struct early_suspend *h)
 		s5c1372_ldi_enable();
 #endif
 		s3c_mdnie_init_global(fbdev[i]);
+		set_mdnie_value(g_mdnie, 1);
 		s3c_mdnie_display_on(fbdev[i]);
 #endif
 		s3cfb_display_on(fbdev[i]);
@@ -1082,9 +1048,6 @@ void s3cfb_late_resume(struct early_suspend *h)
 #ifdef CONFIG_FB_S5P_MIPI_DSIM
 	if (lcd_late_resume)
 		lcd_late_resume();
-#endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_unlock(&s3cfb_lock);
 #endif
 
 	dev_info(info->dev, "-%s\n", __func__);

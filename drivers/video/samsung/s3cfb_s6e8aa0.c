@@ -62,10 +62,6 @@
 #define DEFAULT_BRIGHTNESS		160
 #define DEFAULT_GAMMA_LEVEL		GAMMA_160CD
 #endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-#define DDI_STATUS_REG			0x0A
-#define DDI_STATUS_LEN			0x01
-#endif
 
 #define LDI_ID_REG			0xD1
 #define LDI_ID_LEN			3
@@ -81,11 +77,6 @@
 
 #define ELVSS_MODE0_MIN_VOLTAGE	62
 #define ELVSS_MODE1_MIN_VOLTAGE	52
-
-#ifdef CONFIG_FB_S5P_PREVENTESD
-#define MAX_REINIT_CNT		(100)
-#define LOW_GAMMA_LEVEL		GAMMA_100CD
-#endif
 
 struct str_elvss {
 	u8 reference;
@@ -131,24 +122,13 @@ struct lcd_info {
 	unsigned int			irq;
 	unsigned int			connected;
 
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	struct delayed_work		check_ddi;
-#endif
-
 #if defined(GPIO_OLED_DET)
 	struct delayed_work		oled_detection;
 	unsigned int			oled_detection_count;
 #endif
 	struct dsim_global		*dsim;
 };
-#ifdef CONFIG_FB_S5P_PREVENTESD
-extern unsigned int lpcharge;
-extern struct mutex s3cfb_lock;
-extern bool s3cfb_esd_detected;
-static bool probe_value = false;
-static int oled_det_cnt = 0;
-static int s6e8ax0_read_ddi_status_reg(struct lcd_info *lcd, u8 *buf);
-#endif
+
 #ifdef CONFIG_AID_DIMMING
 static const unsigned int candela_table[GAMMA_MAX] = {
 	 20,  30,  40,  50,  60,  70,  80,  90, 100,
@@ -205,101 +185,6 @@ static unsigned int elvss_offset_table[ELVSS_STATUS_MAX] = {
 
 extern void (*lcd_early_suspend)(void);
 extern void (*lcd_late_resume)(void);
-
-#ifdef CONFIG_FB_S5P_PREVENTESD
-static int s6e8ax0_power(struct lcd_info *lcd, int power);
-
-static void check_ddi_work(struct work_struct *work)
-{
-	int ret;
-	static int reinit_lcd_cnt = 0;
-	unsigned char	ddi_status[DDI_STATUS_LEN];
-	unsigned long	ms_jiffies = msecs_to_jiffies(1000);
-	struct lcd_info *lcd =
-		container_of(work, struct lcd_info, check_ddi.work);
-	int oled_det_level = gpio_get_value(GPIO_OLED_DET);
-
-	if (!lcd->connected) {
-		printk(KERN_INFO "%s, lcd is disconnected\n", __func__);
-		return;
-	}
-
-	if (lpcharge) {
-		printk(KERN_INFO "%s, do not detect esd in lpcharge mode\n", __func__);
-		return;
-	}
-
-	mutex_lock(&s3cfb_lock);
-
-	// check ldi status - should be ldi enabled.
-	if (lcd->ldi_enable != 1) {
-		printk(KERN_INFO "%s, ldi is disabled\n", __func__);
-		goto out;
-	}
-
-	if (!oled_det_level) {
-		printk(KERN_INFO "%s, oled_det_pin detect esd\n", __func__);
-		s3cfb_esd_detected = true;
-		if (lcd->oled_detection_count < 10) {
-			lcd->oled_detection_count++;
-			set_dsim_hs_clk_toggle_count(15);
-			ms_jiffies = HZ/8;
-		} else {
-			set_dsim_hs_clk_toggle_count(0);
-			s3cfb_reinitialize_lcd();
-			reinit_lcd_cnt++;
-			ms_jiffies = msecs_to_jiffies(1000);
-		}
-		goto out;
-	}
-
-	if (oled_det_cnt++ < 3) goto out;
-
-	/* if esd has been detected once, read ddi status periodically */
-	if (!s3cfb_esd_detected) goto out;
-
-	/* Do not read ddi status with low brightness */
-	if (lcd->bl < LOW_GAMMA_LEVEL) goto out;
-
-	ret = s6e8ax0_read_ddi_status_reg(lcd, ddi_status);
-	if (!ret) {
-		printk(KERN_INFO "%s, read failed\n", __func__);
-		set_dsim_hs_clk_toggle_count(0);
-		s3cfb_reinitialize_lcd();
-		reinit_lcd_cnt++;
-		ms_jiffies = msecs_to_jiffies(1000);
-	}
-	if (0x9C != ddi_status[0]) {
-		printk(KERN_INFO "%s, invalid ddi_status 0x%x\n", __func__, ddi_status[0]);
-		if (lcd->oled_detection_count < 3) {
-			lcd->oled_detection_count++;
-			set_dsim_hs_clk_toggle_count(15);
-			ms_jiffies = msecs_to_jiffies(500);
-		} else {
-			set_dsim_hs_clk_toggle_count(0);
-			s3cfb_reinitialize_lcd();
-			reinit_lcd_cnt++;
-			ms_jiffies = msecs_to_jiffies(1000);
-		}
-	} else {
-		printk(KERN_INFO "%s, normal ddi_status 0x%x\n", __func__, ddi_status[0]);
-		if (lcd->oled_detection_count) {
-			set_dsim_hs_clk_toggle_count(0);
-		}
-		lcd->oled_detection_count = 0;
-		reinit_lcd_cnt = 0;
-		ms_jiffies = msecs_to_jiffies(1000);
-	}
-	oled_det_cnt = 0;
-out:
-	if (reinit_lcd_cnt < MAX_REINIT_CNT) {
-//		printk(KERN_INFO "%s, schedule_delayed_work(%u msec)\n", __func__, jiffies_to_msecs(ms_jiffies));
-		schedule_delayed_work(&lcd->check_ddi, ms_jiffies);
-	}
-	mutex_unlock(&s3cfb_lock);
-	return;
-}
-#endif
 
 #if defined(GPIO_OLED_DET)
 static void oled_detection_work(struct work_struct *work)
@@ -1396,27 +1281,20 @@ struct lcd_info *g_lcd;
 void s6e8ax0_early_suspend(void)
 {
 	struct lcd_info *lcd = g_lcd;
-	int ret = 0;
+	int err = 0;
 
 	set_dsim_lcd_enabled(0);
 
 	dev_info(&lcd->ld->dev, "+%s\n", __func__);
 #if defined(GPIO_OLED_DET)
 	disable_irq(lcd->irq);
-	gpio_request(GPIO_OLED_DET, "OLED_DET");
+	err = gpio_request(GPIO_OLED_DET, "OLED_DET");
+	if (err)
+		pr_err("fail to request gpio RESET_REQ_N : %d\n", err);
 	s3c_gpio_cfgpin(GPIO_OLED_DET, S3C_GPIO_OUTPUT);
 	s3c_gpio_setpull(GPIO_OLED_DET, S3C_GPIO_PULL_NONE);
 	gpio_direction_output(GPIO_OLED_DET, GPIO_LEVEL_LOW);
 	gpio_free(GPIO_OLED_DET);
-
-#endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	if (lcd->connected && !lpcharge) {
-		ret = cancel_delayed_work(&lcd->check_ddi);
-		if (ret) {
-			printk(KERN_INFO "%s, success - cancel delayed work\n", __func__);
-		}
-	}
 #endif
 	s6e8ax0_power(lcd, FB_BLANK_POWERDOWN);
 	dev_info(&lcd->ld->dev, "-%s\n", __func__);
@@ -1438,31 +1316,16 @@ void s6e8ax0_late_resume(void)
 	dev_info(&lcd->ld->dev, "-%s\n", __func__);
 
 	set_dsim_lcd_enabled(1);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	if (lcd->connected && !lpcharge) {
-		schedule_delayed_work(&lcd->check_ddi, msecs_to_jiffies(3000));
-	}
-#endif
 
 	return ;
 }
 #endif
-#ifdef CONFIG_FB_S5P_PREVENTESD
-static int s6e8ax0_read_ddi_status_reg(struct lcd_info *lcd, u8 *buf)
-{
-	int ret = 0;
-	ret = s6e8ax0_read(lcd, DDI_STATUS_REG, DDI_STATUS_LEN, buf, 3);
-	if (!ret) {
-		dev_info(&lcd->ld->dev, "read failed ddi_status_reg\n");
-	}
-	return ret;
-}
-#endif
+
 static void s6e8ax0_read_id(struct lcd_info *lcd, u8 *buf)
 {
 	int ret = 0;
 
-	ret = s6e8ax0_read(lcd, LDI_ID_REG, LDI_ID_LEN, buf, 2);
+	ret = s6e8ax0_read(lcd, LDI_ID_REG, LDI_ID_LEN, buf, 3);
 	if (!ret) {
 		lcd->connected = 0;
 		dev_info(&lcd->ld->dev, "panel is not connected well\n");
@@ -1474,7 +1337,7 @@ static int s6e8ax0_read_mtp(struct lcd_info *lcd, u8 *mtp_data)
 {
 	int ret;
 
-	ret = s6e8ax0_read(lcd, LDI_MTP_ADDR, LDI_MTP_LENGTH, mtp_data, 1);
+	ret = s6e8ax0_read(lcd, LDI_MTP_ADDR, LDI_MTP_LENGTH, mtp_data, 0);
 
 	return ret;
 }
@@ -1659,13 +1522,6 @@ static int s6e8ax0_probe(struct device *dev)
 	update_brightness(lcd, 1);
 #endif
 
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	if (lcd->connected && !lpcharge) {
-		INIT_DELAYED_WORK(&lcd->check_ddi, check_ddi_work);
-		schedule_delayed_work(&lcd->check_ddi, msecs_to_jiffies(20000));
-	}
-#endif
-
 #if defined(GPIO_OLED_DET)
 	if (lcd->connected) {
 		INIT_DELAYED_WORK(&lcd->oled_detection, oled_detection_work);
@@ -1674,11 +1530,9 @@ static int s6e8ax0_probe(struct device *dev)
 
 		s3c_gpio_cfgpin(GPIO_OLED_DET, S3C_GPIO_SFN(0xf));
 		s3c_gpio_setpull(GPIO_OLED_DET, S3C_GPIO_PULL_NONE);
-#if !defined(CONFIG_FB_S5P_PREVENTESD)
 		if (request_irq(lcd->irq, oled_detection_int,
 			IRQF_TRIGGER_FALLING, "oled_detection", lcd))
 			pr_err("failed to reqeust irq. %d\n", lcd->irq);
-#endif
 	}
 #endif
 
@@ -1703,16 +1557,11 @@ err_alloc:
 static int __devexit s6e8ax0_remove(struct device *dev)
 {
 	struct lcd_info *lcd = dev_get_drvdata(dev);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_lock(&s3cfb_lock);
-#endif
+
 	s6e8ax0_power(lcd, FB_BLANK_POWERDOWN);
 	lcd_device_unregister(lcd->ld);
 	backlight_device_unregister(lcd->bd);
 	kfree(lcd);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_unlock(&s3cfb_lock);
-#endif
 
 	return 0;
 }
@@ -1723,13 +1572,8 @@ static void s6e8ax0_shutdown(struct device *dev)
 	struct lcd_info *lcd = dev_get_drvdata(dev);
 
 	dev_info(&lcd->ld->dev, "%s\n", __func__);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_lock(&s3cfb_lock);
-#endif
+
 	s6e8ax0_power(lcd, FB_BLANK_POWERDOWN);
-#ifdef CONFIG_FB_S5P_PREVENTESD
-	mutex_unlock(&s3cfb_lock);
-#endif
 }
 
 static struct mipi_lcd_driver s6e8ax0_mipi_driver = {

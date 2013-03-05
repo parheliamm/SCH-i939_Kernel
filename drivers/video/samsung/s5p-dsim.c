@@ -1121,7 +1121,7 @@ static void s5p_dsim_interrupt_mask_set(struct dsim_global *dsim)
 	writel(int_stat, dsim->reg_base + S5P_DSIM_INTMSK);
 }
 
-#if defined(CONFIG_CPU_EXYNOS4210) || defined (CONFIG_FB_S5P_PREVENTESD)
+#if defined(CONFIG_CPU_EXYNOS4210)
 static int s5p_dsim_fifo_clear(struct dsim_global *dsim)
 {
 	int dsim_count = 0, ret;
@@ -1145,30 +1145,6 @@ static int s5p_dsim_fifo_clear(struct dsim_global *dsim)
 
 	return ret;
 }
-#endif
-
-#ifdef CONFIG_FB_S5P_PREVENTESD
-int s5p_dsim_fifo_clear_ext(void)
-{
-	struct dsim_global *dsim = g_dsim;
-	return s5p_dsim_fifo_clear(dsim);
-}
-
-/*void s5p_dsim_rx_fifo_clear(void)
-{
-	struct dsim_global *dsim = g_dsim;
-	u32 i, temp;
-	mutex_lock(&dsim_rd_wr_mutex);
-	i = 0;
-	while (1) {
-		temp = readl(dsim.reg_base + S5P_DSIM_RXFIFO);
-		if ((temp == DSIM_RX_FIFO_READ_DONE) || (i > DSIM_MAX_RX_FIFO))
-			break;
-		pr_info(KERN_INFO "[DSIM:INFO] : %s clear rx fifo : %08x\n", __func__, temp);
-		i++;
-	}
-	mutex_unlock(&dsim_rd_wr_mutex);
-}*/
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
