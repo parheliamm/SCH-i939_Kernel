@@ -483,11 +483,8 @@ static int max8997_set_voltage_buck(struct regulator_dev *rdev,
 	if (max_vol < desc->min || min_vol > desc->max) {
 		ret = -EINVAL;
 		goto out;
-	}
-
-	while (desc->min + desc->step*i < min_vol &&
-	       desc->min + desc->step*i < desc->max)
-		i++;
+	}while (desc->min + desc->step * new_val <= desc->max);
+	i++;
 
 	*selector = i;
 
