@@ -31,11 +31,6 @@
 #include "modem_link_device_dpram.h"
 #include "modem_utils.h"
 
-#if 1 //odkwon_20121030
-static unsigned int dpram_ioctl_prev_cmd = 0; 
-static unsigned int dpram_ioctl_repeat_cnt = 0;
-#endif
-
 static void handle_cp_crash(struct dpram_link_device *dpld);
 static void trigger_force_cp_crash(struct dpram_link_device *dpld);
 
@@ -2210,20 +2205,7 @@ static int dpram_ioctl(struct link_device *ld, struct io_device *iod,
 	struct dpram_link_device *dpld = to_dpram_link_device(ld);
 	int err = 0;
 
-#if 1 //odkwon_20121030
-	if ( cmd != dpram_ioctl_prev_cmd ) {
-		if ( dpram_ioctl_repeat_cnt > 0 )
-			mif_info("Repeat cmd 0x%08X (count:%d)\n", dpram_ioctl_prev_cmd, dpram_ioctl_repeat_cnt); // old
-		mif_info("%s: cmd 0x%08X\n", ld->name, cmd); // new
-		dpram_ioctl_prev_cmd = cmd; 
-		dpram_ioctl_repeat_cnt = 0; 
-	}
-	else {
-		dpram_ioctl_repeat_cnt++; 
-	}
-#else
 	mif_info("%s: cmd 0x%08X\n", ld->name, cmd);
-#endif
 
 	switch (cmd) {
 	case IOCTL_DPRAM_INIT_STATUS:
