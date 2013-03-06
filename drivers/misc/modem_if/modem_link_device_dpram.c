@@ -1469,6 +1469,7 @@ static int recv_ipc_with_skb(struct dpram_link_device *dpld, int dev)
 			mif_err("%s: memcmp16_to_io fail\n", ld->name);
 			trigger_force_cp_crash(dpld);
 			rcvd = -EIO;
+			dev_kfree_skb_any(skb);
 			goto exit;
 		}
 #endif

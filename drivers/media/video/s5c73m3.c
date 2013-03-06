@@ -3507,7 +3507,11 @@ static int s5c73m3_init(struct v4l2_subdev *sd, u32 val)
 	state->focus.touch = 0;
 
 	state->fps = 0;			/* auto */
-
+	if ( system_state == SYSTEM_POWER_OFF || system_state == SYSTEM_RESTART)
+	{
+		printk("%s(LINE : %d) system_state = %x",__func__,__LINE__,system_state);
+		return -ENOSYS;
+	}
 	memset(&state->focus, 0, sizeof(state->focus));
 
 	if (!state->pdata->is_vdd_core_set())
