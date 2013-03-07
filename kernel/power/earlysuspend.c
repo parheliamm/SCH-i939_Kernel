@@ -57,11 +57,11 @@ static int state;
 
 static void sync_system(struct work_struct *work)
 {
-	pr_info("%s +\n", __func__);
+	pr_debug("%s +\n", __func__);
 	wake_lock(&sync_wake_lock);
 	sys_sync();
 	wake_unlock(&sync_wake_lock);
-	pr_info("%s -\n", __func__);
+	pr_debug("%s -\n", __func__);
 }
 
 void register_early_suspend(struct early_suspend *handler)

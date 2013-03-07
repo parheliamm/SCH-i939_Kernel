@@ -681,7 +681,7 @@ static irqreturn_t mms_ts_interrupt(int irq, void *dev_id)
 				, angle, palm);
 #else
 			if (info->finger_state[id] != 0) {
-				dev_notice(&client->dev,
+				dev_dbg(&client->dev,
 					"finger [%d] up, palm %d\n", id, palm);
 			}
 #endif
@@ -719,7 +719,7 @@ static irqreturn_t mms_ts_interrupt(int irq, void *dev_id)
 #else
 		if (info->finger_state[id] == 0) {
 			info->finger_state[id] = 1;
-			dev_notice(&client->dev,
+			dev_dbg(&client->dev,
 				"finger [%d] down, palm %d\n", id, palm);
 		}
 #endif
