@@ -49,7 +49,7 @@
 #ifdef WLTEST
 #define	EPI_VERSION_STR		"1.28.19.4 (r WLTEST)"
 #else
-#define	EPI_VERSION_STR		"1.28.19.4 (Add_roam_tether_patch)"
+#define	EPI_VERSION_STR		"1.28.19.4 (1113_onoffpatch)"
 #endif
 #endif /* BCMINTERNAL */
 

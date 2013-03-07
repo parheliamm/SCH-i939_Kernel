@@ -9217,6 +9217,9 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 	bool rollback_lock = false;
 	s32 bw_cap = 0;
 	s32 cur_band = -1;
+
+	struct ieee80211_supported_band *bands[IEEE80211_NUM_BANDS]={NULL,};
+
 	if (wl == NULL) {
 		wl = wlcfg_drv_priv;
 		mutex_lock(&wl->usr_sync);
@@ -9231,15 +9234,6 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 		WL_ERR(("error read bandlist (%d)\n", err));
 		goto end_bands;
 	}
-
-	wiphy = wl_to_wiphy(wl);
-#ifdef CUSTOMER_HW4
-	wiphy->bands[IEEE80211_BAND_2GHZ] = NULL;
-#else
-	/* Setup 2Ghz band as default */
-	wiphy->bands[IEEE80211_BAND_2GHZ] = &__wl_band_2ghz;
-#endif
-	wiphy->bands[IEEE80211_BAND_5GHZ] = NULL;
 
 	err = wldev_ioctl(dev, WLC_GET_BAND, &cur_band,
 		sizeof(s32), false);
@@ -9268,34 +9262,40 @@ s32 wl_update_wiphybands(struct wl_priv *wl)
 	}
 
 	nband = bandlist[0];
+
 	for (i = 1; i <= nband && i < ARRAYSIZE(bandlist); i++) {
 		index = -1;
 		if (bandlist[i] == WLC_BAND_5G && __wl_band_5ghz_a.n_channels > 0) {
-			wiphy->bands[IEEE80211_BAND_5GHZ] =
+			bands[IEEE80211_BAND_5GHZ] =
 				&__wl_band_5ghz_a;
 				index = IEEE80211_BAND_5GHZ;
 			if (bw_cap == WLC_N_BW_40ALL || bw_cap == WLC_N_BW_20IN2G_40IN5G)
-				wiphy->bands[index]->ht_cap.cap |= IEEE80211_HT_CAP_SGI_40;
+				bands[index]->ht_cap.cap |= IEEE80211_HT_CAP_SGI_40;
 		}
 		else if (bandlist[i] == WLC_BAND_2G && __wl_band_2ghz.n_channels > 0) {
-			wiphy->bands[IEEE80211_BAND_2GHZ] =
+			bands[IEEE80211_BAND_2GHZ] =
 				&__wl_band_2ghz;
 				index = IEEE80211_BAND_2GHZ;
 			if (bw_cap == WLC_N_BW_40ALL)
-				wiphy->bands[index]->ht_cap.cap |= IEEE80211_HT_CAP_SGI_40;
+				bands[index]->ht_cap.cap |= IEEE80211_HT_CAP_SGI_40;
 		}
 
 		if ((index >= 0) && nmode) {
-			wiphy->bands[index]->ht_cap.cap |=
+			bands[index]->ht_cap.cap |=
 				(IEEE80211_HT_CAP_SGI_20 | IEEE80211_HT_CAP_DSSSCCK40);
-			wiphy->bands[index]->ht_cap.ht_supported = TRUE;
-			wiphy->bands[index]->ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K;
-			wiphy->bands[index]->ht_cap.ampdu_density = IEEE80211_HT_MPDU_DENSITY_16;
+			bands[index]->ht_cap.ht_supported = TRUE;
+			bands[index]->ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_64K;
+			bands[index]->ht_cap.ampdu_density = IEEE80211_HT_MPDU_DENSITY_16;
 			/* An HT shall support all EQM rates for one spatial stream */
-			wiphy->bands[index]->ht_cap.mcs.rx_mask[0] = 0xff;
+			bands[index]->ht_cap.mcs.rx_mask[0] = 0xff;
 		}
 
 	}
+
+	wiphy = wl_to_wiphy(wl);
+
+	wiphy->bands[IEEE80211_BAND_2GHZ] = bands[IEEE80211_BAND_2GHZ];
+	wiphy->bands[IEEE80211_BAND_5GHZ] = bands[IEEE80211_BAND_5GHZ];
 
 	wiphy_apply_custom_regulatory(wiphy, &brcm_regdom);
 	end_bands:
