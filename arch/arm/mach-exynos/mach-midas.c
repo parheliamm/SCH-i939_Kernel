@@ -320,7 +320,7 @@ static void touchkey_init_hw(void)
 	if (system_rev < 3)
 		gpio_request(GPIO_3_TOUCH_EN_R1, "gpio_3_touch_en");
 	else
-	gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
+		gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
 #else
 	gpio_request(GPIO_3_TOUCH_EN, "gpio_3_touch_en");
 #endif
@@ -441,10 +441,10 @@ static int touchkey_led_power_on(bool on)
 		else
 			gpio_direction_output(GPIO_3_TOUCH_EN_R1, 0);
 	} else {
-	if (on)
-		gpio_direction_output(GPIO_3_TOUCH_EN, 1);
-	else
-		gpio_direction_output(GPIO_3_TOUCH_EN, 0);
+		if (on)
+			gpio_direction_output(GPIO_3_TOUCH_EN, 1);
+		else
+			gpio_direction_output(GPIO_3_TOUCH_EN, 0);
 	}
 #else
 	if (on)
@@ -2970,15 +2970,15 @@ static void felica_setup(void)
 		s3c_gpio_setpull(FELICA_GPIO_I2C_SCL_R1, S3C_GPIO_PULL_DOWN);
 		gpio_free(FELICA_GPIO_I2C_SCL_R1);
 	} else {
-	/* I2C SDA GPY2[4] */
-	gpio_request(FELICA_GPIO_I2C_SDA, FELICA_GPIO_I2C_SDA_NAME);
-	s3c_gpio_setpull(FELICA_GPIO_I2C_SDA, S3C_GPIO_PULL_DOWN);
-	gpio_free(FELICA_GPIO_I2C_SDA);
+		/* I2C SDA GPY2[4] */
+		gpio_request(FELICA_GPIO_I2C_SDA, FELICA_GPIO_I2C_SDA_NAME);
+		s3c_gpio_setpull(FELICA_GPIO_I2C_SDA, S3C_GPIO_PULL_DOWN);
+		gpio_free(FELICA_GPIO_I2C_SDA);
 
-	/* I2C SCL GPY2[5] */
-	gpio_request(FELICA_GPIO_I2C_SCL, FELICA_GPIO_I2C_SCL_NAME);
-	s3c_gpio_setpull(FELICA_GPIO_I2C_SCL, S3C_GPIO_PULL_DOWN);
-	gpio_free(FELICA_GPIO_I2C_SCL);
+		/* I2C SCL GPY2[5] */
+		gpio_request(FELICA_GPIO_I2C_SCL, FELICA_GPIO_I2C_SCL_NAME);
+		s3c_gpio_setpull(FELICA_GPIO_I2C_SCL, S3C_GPIO_PULL_DOWN);
+		gpio_free(FELICA_GPIO_I2C_SCL);
 	}
 #elif defined(CONFIG_MACH_T0_JPN_LTE_DCM)
 	/* I2C SDA GPY2[4] */
@@ -3580,6 +3580,9 @@ static void __init exynos4_reserve(void)
 #if defined(CONFIG_USE_MFC_CMA) && defined(CONFIG_MACH_M0)
 	ret = dma_declare_contiguous(&s5p_device_mfc.dev,
 			0x02800000, 0x5C800000, 0);
+#elif defined(CONFIG_USE_MFC_CMA) && defined(CONFIG_MACH_GC1)
+	ret = dma_declare_contiguous(&s5p_device_mfc.dev,
+			0x02800000, 0x51000000, 0);
 #endif
 	if (ret != 0)
 		printk(KERN_ERR "%s Fail\n", __func__);

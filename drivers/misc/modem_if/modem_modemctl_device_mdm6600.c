@@ -32,6 +32,8 @@
 
 #if defined(CONFIG_MACH_M0_CTC)
 #include <linux/mfd/max77693.h>
+#include <mach/gpio.h>
+#include <mach/gpio-exynos4.h>
 #endif
 
 #if defined(CONFIG_MACH_U1_KOR_LGT)
@@ -669,6 +671,7 @@ static irqreturn_t phone_active_irq_handler(int irq, void *arg)
 	int phone_active = 0;
 	int phone_state = 0;
 	int cp_dump_int = 0;
+	int slave_wakeup = 0;
 
 	if (!mc->gpio_cp_reset ||
 		!mc->gpio_phone_active || !mc->gpio_cp_dump_int) {
@@ -678,10 +681,11 @@ static irqreturn_t phone_active_irq_handler(int irq, void *arg)
 
 	phone_reset = gpio_get_value(mc->gpio_cp_reset);
 	phone_active = gpio_get_value(mc->gpio_phone_active);
-	cp_dump_int = gpio_get_value(mc->gpio_cp_dump_int);
+	cp_dump_int = 0;	//cp_dump_int = gpio_get_value(mc->gpio_cp_dump_int);
+	slave_wakeup = gpio_get_value(GPIO_IPC_SLAVE_WAKEUP); 
 
-	pr_info("[MSM] <%s> phone_reset=%d, phone_active=%d, cp_dump_int=%d\n",
-		__func__, phone_reset, phone_active, cp_dump_int);
+	pr_info("[MSM] <%s> phone_reset=%d, phone_active=%d, cp_dump_int=%d, slave_wakeup=%d\n",
+		__func__, phone_reset, phone_active, cp_dump_int, slave_wakeup);
 
 	if (phone_reset && phone_active) {
 		phone_state = STATE_ONLINE;
@@ -689,10 +693,17 @@ static irqreturn_t phone_active_irq_handler(int irq, void *arg)
 			mc->iod->modem_state_changed(mc->iod, phone_state);
 	} else if (phone_reset && !phone_active) {
 		if (mc->phone_state == STATE_ONLINE) {
-				phone_state = STATE_CRASH_EXIT;
+			if (cp_dump_int)
+			phone_state = STATE_CRASH_EXIT;
+			else
+				phone_state = STATE_CRASH_RESET;
 			if (mc->iod && mc->iod->modem_state_changed)
 				mc->iod->modem_state_changed(mc->iod,
 							     phone_state);
+
+			gpio_set_value(GPIO_IPC_SLAVE_WAKEUP, 1);
+
+			pr_info("[MSM] <%s> gpio_slave_wakeup=%d\n",__func__, slave_wakeup);
 		}
 	} else {
 		phone_state = STATE_OFFLINE;
