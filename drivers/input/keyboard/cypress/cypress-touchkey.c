@@ -711,7 +711,7 @@ static irqreturn_t touchkey_interrupt(int irq, void *dev_id)
 		printk(KERN_DEBUG "[TouchKey] keycode:%d pressed:%d\n",
 		   touchkey_keycode[keycode_type], pressed);
 #else
-		printk(KERN_DEBUG "[TouchKey] pressed:%d\n",
+		pr_debug("[TouchKey] pressed:%d\n",
 			pressed);
 #endif
 
